@@ -4,6 +4,10 @@
 #include <ESP32Time.h>
 #include <math.h>
 #include<ArduinoJson.h>
+#include "esp_task_wdt.h"
+
+// Watchdog
+#define WDT_TIMEOUT 3
 
 //ESP32Time rtc;
 ESP32Time rtc(3600);  // offset in seconds GMT+1
@@ -65,7 +69,7 @@ int activeScreen = 0;
 //--  LORA --  LORA --  LORA --  LORA --  LORA --  LORA --  LORA --  LORA --  LORA --  LORA --  LORA --  LORA --  LORA
 //-------------------------------------------------------------------------------------------------------------------
 /* OTAA para*/
-uint8_t devEui[] = { 0xce, 0x75, 0x54, 0xdc, 0x00, 0x00, 0x9c, 0x5f };
+uint8_t devEui[] = { 0xce, 0x75, 0x54, 0xdc, 0x00, 0x00, 0x9c, 0x5e };
 uint8_t appEui[] = { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01 };
 uint8_t appKey[] = { 0x60, 0xf5, 0x4e, 0xb8, 0x16, 0xbc, 0xfd, 0x0a, 0xcd, 0x08, 0x09, 0x5e, 0xe9, 0x04, 0xeb, 0xfe };
 
@@ -197,6 +201,10 @@ void loopLORA(){
   {
     case DEVICE_STATE_INIT:
     {
+      #if(LORAWAN_DEVEUI_AUTO)
+        LoRaWAN.generateDeveuiByChipID();
+      #endif
+
       LoRaWAN.init(loraWanClass,loraWanRegion);
       break;
     }
@@ -561,12 +569,17 @@ void checkPumpStates(){
 }
 
 void setup() {
+  Serial.begin(115200);
+
+  // Initialisation du watchdog
+  esp_task_wdt_init(WDT_TIMEOUT, true); //enable panic so ESP32 restarts
+  esp_task_wdt_add(NULL); //add current thread to WDT watch
+  
   // initialize OLED
   VextON();
   delay(100);
   display.init();
 
-  Serial.begin(115200);
 
   pinMode(GPIObuttonMenu, INPUT_PULLUP);
 
@@ -615,4 +628,7 @@ void loop()
 
   // Communication LORA:
   loopLORA();
+
+  // Reset du watchdog
+  esp_task_wdt_reset();
 }
